@@ -23,11 +23,17 @@ def _looks_like_login_error(data: Any) -> bool:
     if not isinstance(data, dict):
         return False
     error_code = str(data.get("error_code", ""))
-    description = str(data.get("error_description", ""))
-    login_words = ("login", "logged in", "登录", "重新登录")
+    description = str(data.get("error_description", "")).lower()
+    login_words = ("login", "logged in", "auth", "session", "cookie")
     return error_code in {"400016", "401", "403"} or any(
-        word in description.lower() for word in login_words
+        word in description for word in login_words
     )
+
+
+def _looks_like_html(body: str) -> bool:
+    prefix = body.lstrip()[:2048].lower()
+    html_markers = ("<!doctype html", "<html", "aliyun_waf", "renderdata")
+    return any(marker in prefix for marker in html_markers)
 
 
 def classify_response(status_code: int, body: str) -> ClassifiedResponse:
@@ -43,6 +49,12 @@ def classify_response(status_code: int, body: str) -> ClassifiedResponse:
         )
     if not body:
         return ClassifiedResponse(ResponseKind.EMPTY, "Empty response from Xueqiu.")
+    if _looks_like_html(body):
+        return ClassifiedResponse(
+            ResponseKind.UNAUTHORIZED,
+            "Xueqiu returned an HTML page instead of timeline JSON; "
+            "run xueqiu-collector auth again.",
+        )
     try:
         data = json.loads(body)
     except json.JSONDecodeError:

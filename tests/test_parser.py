@@ -51,3 +51,24 @@ def test_classify_response_detects_malformed_json():
 
     assert result.kind == ResponseKind.MALFORMED_JSON
     assert "malformed JSON" in result.message
+
+
+def test_classify_response_treats_html_page_as_login_required():
+    body = "<!doctype html><html><title>雪球</title><body>login required</body></html>"
+
+    result = classify_response(200, body)
+
+    assert result.kind == ResponseKind.UNAUTHORIZED
+    assert "run xueqiu-collector auth" in result.message
+
+
+def test_classify_response_treats_waf_html_wrapper_as_login_required():
+    body = (
+        '<textarea id="renderData">{"_waf_bd8ce2ce37":"token"}</textarea>'
+        '<!doctype html><html><meta name="aliyun_waf_aa" content="challenge">'
+    )
+
+    result = classify_response(200, body)
+
+    assert result.kind == ResponseKind.UNAUTHORIZED
+    assert "timeline JSON" in result.message
