@@ -5,7 +5,7 @@ Local CLI for collecting posts from the Xueqiu users you follow.
 ## Setup
 
 ```powershell
-pip install -e .[test]
+pip install .[test]
 python -m playwright install chromium
 ```
 
@@ -39,3 +39,11 @@ xueqiu-collector export --format csv --output data/exports/xueqiu-posts.csv
 ```
 
 Runtime files under `data/` are ignored by Git.
+
+## Tests
+
+On this Windows Anaconda environment, disable third-party pytest plugin autoloading:
+
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; pytest -v
+```
