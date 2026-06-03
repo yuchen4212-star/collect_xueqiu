@@ -15,7 +15,7 @@ python -m playwright install chromium
 xueqiu-collector auth
 ```
 
-Log in to Xueqiu in the opened browser, then return to the terminal and press Enter.
+Log in to Xueqiu in the opened browser, then close the browser window.
 
 ## Collect
 

@@ -1,5 +1,3 @@
-import builtins
-
 import pytest
 
 from xueqiu_collector.client import PlaywrightTimelineClient, open_auth_browser
@@ -52,7 +50,7 @@ def test_fetch_timeline_page_uses_home_timeline_endpoint(monkeypatch, tmp_path):
     ]
 
 
-def test_open_auth_browser_waits_for_user_before_closing(monkeypatch, tmp_path):
+def test_open_auth_browser_waits_for_browser_close(monkeypatch, tmp_path):
     events = []
 
     class FakePage:
@@ -66,6 +64,9 @@ def test_open_auth_browser_waits_for_user_before_closing(monkeypatch, tmp_path):
 
         def close(self):
             events.append(("close", None))
+
+        def wait_for_event(self, event_name):
+            events.append(("wait_for_event", event_name))
 
     class FakeChromium:
         def launch_persistent_context(self, user_data_dir, headless):
@@ -85,15 +86,12 @@ def test_open_auth_browser_waits_for_user_before_closing(monkeypatch, tmp_path):
         "xueqiu_collector.client._sync_playwright",
         lambda: FakePlaywright(),
     )
-    monkeypatch.setattr(
-        builtins, "input", lambda prompt: events.append(("input", prompt))
-    )
 
     open_auth_browser(tmp_path / "profile")
 
     assert events[0] == ("launch", str(tmp_path / "profile"), False)
     assert ("goto", "https://xueqiu.com/") in events
-    assert events[-1] == ("close", None)
+    assert events[-1] == ("wait_for_event", "close")
 
 
 def test_missing_playwright_dependency_has_clear_message(monkeypatch, tmp_path):
