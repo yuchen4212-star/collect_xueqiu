@@ -1,6 +1,11 @@
 import argparse
 from typing import Optional, Sequence
 
+from .client import PlaywrightTimelineClient, open_auth_browser
+from .collector import collect_timeline
+from .exporter import export_csv, export_jsonl
+from .storage import Store
+
 
 DEFAULT_DATABASE = "data/xueqiu.sqlite"
 
@@ -30,10 +35,71 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_summary(summary) -> None:
+    print(
+        "pages={}/{} inserted={} updated={} duplicate={} error={}".format(
+            summary.pages_fetched,
+            summary.pages_requested,
+            summary.inserted_count,
+            summary.updated_count,
+            summary.duplicate_count,
+            summary.error or "",
+        )
+    )
+
+
+def _print_posts(posts) -> None:
+    for post in posts:
+        preview = post.text[:80].replace("\n", " ")
+        print(
+            "{}\t{}\t{}\t{}\t{}".format(
+                post.id,
+                post.author_name or "",
+                post.created_at or "",
+                preview,
+                post.url or "",
+            )
+        )
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
-    parser.parse_args(argv)
-    return 0
+    args = parser.parse_args(argv)
+
+    if args.command == "auth":
+        open_auth_browser(args.profile_dir)
+        return 0
+
+    store = Store(args.database)
+    store.init_schema()
+
+    if args.command == "collect":
+        client = PlaywrightTimelineClient(args.profile_dir)
+        summary = collect_timeline(
+            store,
+            client,
+            pages=args.pages,
+            count=args.count,
+            delay=args.delay,
+        )
+        _print_summary(summary)
+        return 1 if summary.error else 0
+
+    if args.command == "inspect":
+        _print_posts(store.list_posts(limit=args.limit))
+        return 0
+
+    if args.command == "export":
+        posts = store.list_posts(limit=None)
+        if args.format == "jsonl":
+            export_jsonl(posts, args.output)
+        else:
+            export_csv(posts, args.output)
+        print("exported {} posts to {}".format(len(posts), args.output))
+        return 0
+
+    parser.error("unknown command {}".format(args.command))
+    return 2
 
 
 if __name__ == "__main__":
