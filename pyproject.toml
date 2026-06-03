@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xueqiu-collector"
+version = "0.1.0"
+description = "Collect followed Xueqiu timeline posts into a local SQLite database."
+requires-python = ">=3.8"
+dependencies = ["playwright>=1.40,<2"]
+
+[project.optional-dependencies]
+test = ["pytest>=6"]
+
+[project.scripts]
+xueqiu-collector = "xueqiu_collector.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
