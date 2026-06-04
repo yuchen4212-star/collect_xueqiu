@@ -50,4 +50,4 @@ def open_auth_browser(profile_dir) -> None:
         page = context.new_page()
         page.goto("https://xueqiu.com/")
         print("Log in to Xueqiu in the opened browser, then close the browser window.")
-        context.wait_for_event("close")
+        context.wait_for_event("close", timeout=0)

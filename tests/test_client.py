@@ -65,8 +65,8 @@ def test_open_auth_browser_waits_for_browser_close(monkeypatch, tmp_path):
         def close(self):
             events.append(("close", None))
 
-        def wait_for_event(self, event_name):
-            events.append(("wait_for_event", event_name))
+        def wait_for_event(self, event_name, timeout=None):
+            events.append(("wait_for_event", event_name, timeout))
 
     class FakeChromium:
         def launch_persistent_context(self, user_data_dir, headless):
@@ -91,7 +91,7 @@ def test_open_auth_browser_waits_for_browser_close(monkeypatch, tmp_path):
 
     assert events[0] == ("launch", str(tmp_path / "profile"), False)
     assert ("goto", "https://xueqiu.com/") in events
-    assert events[-1] == ("wait_for_event", "close")
+    assert events[-1] == ("wait_for_event", "close", 0)
 
 
 def test_missing_playwright_dependency_has_clear_message(monkeypatch, tmp_path):
