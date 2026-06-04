@@ -9,7 +9,7 @@ def test_collect_defaults_match_spec():
     assert args.pages == 3
     assert args.count == 20
     assert args.delay == 1.0
-    assert args.database == "data/xueqiu.sqlite"
+    assert args.database == "data/db/xueqiu.sqlite"
 
 
 def test_export_requires_supported_format_and_output():
@@ -20,6 +20,30 @@ def test_export_requires_supported_format_and_output():
     assert args.command == "export"
     assert args.format == "csv"
     assert args.output == "data/exports/posts.csv"
+
+
+def test_collect_report_accepts_period_and_notify_options():
+    args = cli.build_parser().parse_args(
+        [
+            "collect-report",
+            "--period",
+            "morning",
+            "--notify",
+            "--style",
+            "full",
+            "--author-limit",
+            "5",
+            "--output-dir",
+            "data/reports",
+        ]
+    )
+
+    assert args.command == "collect-report"
+    assert args.period == "morning"
+    assert args.notify is True
+    assert args.style == "full"
+    assert args.author_limit == 5
+    assert args.output_dir == "data/reports"
 
 
 def test_main_auth_invokes_auth_browser(monkeypatch, tmp_path):

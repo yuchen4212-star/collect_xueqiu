@@ -7,6 +7,8 @@ pytest-of-*/
 venv/
 .env
 data/browser-profile/
+data/db/
 data/*.sqlite
 data/*.sqlite-*
 data/exports/
+data/reports/
