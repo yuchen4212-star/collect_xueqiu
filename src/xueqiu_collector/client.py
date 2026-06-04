@@ -28,15 +28,20 @@ class PlaywrightTimelineClient:
         with _sync_playwright() as playwright:
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(self.profile_dir),
-                headless=True,
+                headless=False,
             )
-            response = context.request.get(url)
-            status = response.status
-            body = response.text()
-            close = getattr(context, "close", None)
-            if close is not None:
-                close()
-            return status, body
+            try:
+                page_obj = context.new_page()
+                page_obj.goto("https://xueqiu.com/")
+                response = page_obj.goto(url)
+                page_obj.wait_for_load_state("domcontentloaded")
+                body = page_obj.text_content("body") or ""
+                status = response.status if response is not None else 0
+                return status, body
+            finally:
+                close = getattr(context, "close", None)
+                if close is not None:
+                    close()
 
 
 def open_auth_browser(profile_dir) -> None:

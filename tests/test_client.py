@@ -4,26 +4,35 @@ from xueqiu_collector.client import PlaywrightTimelineClient, open_auth_browser
 
 
 def test_fetch_timeline_page_uses_home_timeline_endpoint(monkeypatch, tmp_path):
-    calls = []
+    events = []
 
     class FakeResponse:
         status = 200
 
-        def text(self):
-            return "{\"home_timeline\":[]}"
-
-    class FakeRequest:
-        def get(self, url):
-            calls.append(url)
+    class FakePage:
+        def goto(self, url):
+            events.append(("goto", url))
             return FakeResponse()
 
+        def wait_for_load_state(self, state):
+            events.append(("wait_for_load_state", state))
+
+        def text_content(self, selector):
+            events.append(("text_content", selector))
+            return "{\"home_timeline\":[]}"
+
     class FakeContext:
-        request = FakeRequest()
+        def new_page(self):
+            events.append(("new_page", None))
+            return FakePage()
+
+        def close(self):
+            events.append(("close", None))
 
     class FakeChromium:
         def launch_persistent_context(self, user_data_dir, headless):
             assert str(tmp_path / "profile") == user_data_dir
-            assert headless is True
+            assert headless is False
             return FakeContext()
 
     class FakePlaywright:
@@ -45,9 +54,12 @@ def test_fetch_timeline_page_uses_home_timeline_endpoint(monkeypatch, tmp_path):
 
     assert status == 200
     assert body == "{\"home_timeline\":[]}"
-    assert calls == [
-        "https://xueqiu.com/v4/statuses/home_timeline.json?page=2&count=30"
-    ]
+    assert ("goto", "https://xueqiu.com/") in events
+    assert (
+        "goto",
+        "https://xueqiu.com/v4/statuses/home_timeline.json?page=2&count=30",
+    ) in events
+    assert events[-1] == ("close", None)
 
 
 def test_open_auth_browser_waits_for_browser_close(monkeypatch, tmp_path):
