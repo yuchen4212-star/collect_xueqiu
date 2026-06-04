@@ -1,4 +1,5 @@
 import argparse
+import sys
 from typing import Optional, Sequence
 
 from .client import PlaywrightTimelineClient, open_auth_browser
@@ -48,18 +49,24 @@ def _print_summary(summary) -> None:
     )
 
 
+def _safe_console_text(text: str, encoding: Optional[str] = None) -> str:
+    target_encoding = encoding or getattr(sys.stdout, "encoding", None) or "utf-8"
+    return text.encode(target_encoding, errors="replace").decode(
+        target_encoding, errors="replace"
+    )
+
+
 def _print_posts(posts) -> None:
     for post in posts:
         preview = post.text[:80].replace("\n", " ")
-        print(
-            "{}\t{}\t{}\t{}\t{}".format(
-                post.id,
-                post.author_name or "",
-                post.created_at or "",
-                preview,
-                post.url or "",
-            )
+        line = "{}\t{}\t{}\t{}\t{}".format(
+            post.id,
+            post.author_name or "",
+            post.created_at or "",
+            preview,
+            post.url or "",
         )
+        print(_safe_console_text(line))
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

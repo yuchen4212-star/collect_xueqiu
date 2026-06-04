@@ -90,3 +90,7 @@ def test_main_export_jsonl_uses_store(monkeypatch, tmp_path):
     assert result == 0
     assert ("list", None) in calls
     assert ("jsonl", str(tmp_path / "posts.jsonl")) in calls
+
+
+def test_safe_console_text_replaces_unencodable_characters():
+    assert cli._safe_console_text("a\u2022b", "gbk") == "a?b"
