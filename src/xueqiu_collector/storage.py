@@ -54,6 +54,7 @@ class Store:
                 )
                 """
             )
+            self._ensure_column(conn, "collection_runs", "source_key", "TEXT")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS authors (
@@ -74,6 +75,29 @@ class Store:
                     quoted_url TEXT,
                     raw_json TEXT NOT NULL,
                     updated_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS collection_sources (
+                    key TEXT PRIMARY KEY,
+                    source_type TEXT NOT NULL,
+                    source_id TEXT,
+                    label TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS post_sources (
+                    source_key TEXT NOT NULL,
+                    post_id TEXT NOT NULL,
+                    first_collected_at TEXT NOT NULL,
+                    last_collected_at TEXT NOT NULL,
+                    PRIMARY KEY (source_key, post_id)
                 )
                 """
             )
@@ -109,10 +133,32 @@ class Store:
             )
             self._backfill_metadata(conn)
 
-    def upsert_posts(self, posts: Iterable[Post]) -> UpsertCounts:
+    def _ensure_column(self, conn, table: str, column: str, definition: str) -> None:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info({})".format(table))}
+        if column not in columns:
+            conn.execute("ALTER TABLE {} ADD COLUMN {} {}".format(table, column, definition))
+
+    def upsert_posts(
+        self,
+        posts: Iterable[Post],
+        source_key: Optional[str] = None,
+        source_type: Optional[str] = None,
+        source_id: Optional[str] = None,
+        source_label: Optional[str] = None,
+    ) -> UpsertCounts:
         inserted = updated = duplicate = 0
         now = datetime.now(timezone.utc).isoformat()
+        posts = list(posts)
         with self.connect() as conn:
+            if source_key:
+                self._upsert_source(
+                    conn,
+                    source_key=source_key,
+                    source_type=source_type or "custom",
+                    source_id=source_id,
+                    label=source_label or source_key,
+                    now=now,
+                )
             for post in posts:
                 existing = conn.execute(
                     "SELECT raw_json FROM posts WHERE id = ?", (post.id,)
@@ -173,6 +219,8 @@ class Store:
                     updated += 1
                 self._upsert_author(conn, post, now)
                 self._upsert_quote(conn, post, now)
+                if source_key:
+                    self._upsert_post_source(conn, source_key, post.id, now)
         return UpsertCounts(inserted, updated, duplicate)
 
     def _upsert_author(self, conn, post: Post, now: str) -> None:
@@ -222,6 +270,49 @@ class Store:
             ),
         )
 
+    def _upsert_source(
+        self,
+        conn,
+        source_key: str,
+        source_type: str,
+        source_id: Optional[str],
+        label: str,
+        now: str,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO collection_sources (
+                key, source_type, source_id, label, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                source_type = excluded.source_type,
+                source_id = excluded.source_id,
+                label = excluded.label,
+                updated_at = excluded.updated_at
+            """,
+            (source_key, source_type, source_id, label, now, now),
+        )
+
+    def _upsert_post_source(
+        self,
+        conn,
+        source_key: str,
+        post_id: str,
+        now: str,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO post_sources (
+                source_key, post_id, first_collected_at, last_collected_at
+            )
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(source_key, post_id) DO UPDATE SET
+                last_collected_at = excluded.last_collected_at
+            """,
+            (source_key, post_id, now, now),
+        )
+
     def _backfill_metadata(self, conn) -> None:
         now = datetime.now(timezone.utc).isoformat()
         rows = conn.execute("SELECT * FROM posts").fetchall()
@@ -267,16 +358,50 @@ class Store:
             for row in rows
         ]
 
-    def record_run(self, summary: RunSummary) -> None:
+    def list_posts_for_source(
+        self, source_key: str, limit: Optional[int] = None
+    ) -> List[Post]:
+        sql = """
+            SELECT p.*
+            FROM posts p
+            JOIN post_sources ps ON ps.post_id = p.id
+            WHERE ps.source_key = ?
+            ORDER BY p.id ASC
+        """
+        params = [source_key]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self.connect() as conn:
+            rows = conn.execute(sql, tuple(params)).fetchall()
+        return [
+            Post(
+                id=row["id"],
+                author_id=row["author_id"],
+                author_name=row["author_name"],
+                created_at=row["created_at"],
+                text=row["text"],
+                html=row["html"],
+                url=row["url"],
+                reply_count=row["reply_count"],
+                retweet_count=row["retweet_count"],
+                fav_count=row["fav_count"],
+                raw_json=row["raw_json"],
+            )
+            for row in rows
+        ]
+
+    def record_run(self, summary: RunSummary, source_key: Optional[str] = None) -> None:
         now = datetime.now(timezone.utc).isoformat()
         with self.connect() as conn:
             conn.execute(
                 """
                 INSERT INTO collection_runs (
                     started_at, finished_at, pages_requested, pages_fetched,
-                    inserted_count, updated_count, duplicate_count, error
+                    inserted_count, updated_count, duplicate_count, error,
+                    source_key
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     now,
@@ -286,7 +411,8 @@ class Store:
                     summary.inserted_count,
                     summary.updated_count,
                     summary.duplicate_count,
-                        summary.error,
+                    summary.error,
+                    source_key,
                 ),
             )
 

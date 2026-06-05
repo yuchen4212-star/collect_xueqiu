@@ -1,19 +1,21 @@
 import argparse
 import sys
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from typing import Optional, Sequence
 
 from .client import PlaywrightTimelineClient, open_auth_browser
-from .collector import collect_timeline
+from .collector import collect_timeline, collect_user_timeline
 from .exporter import export_csv, export_jsonl
 from .notifier import notify
 from .periods import CHINA_TZ, PERIOD_CHOICES, resolve_period_window
 from .reporting import filter_posts_by_window, render_author_report, write_report
 from .storage import Store
+from .user_analysis import render_user_analysis_report, write_user_analysis_report
 
 
 DEFAULT_DATABASE = "data/db/xueqiu.sqlite"
 DEFAULT_REPORT_DIR = "data/reports"
+DEFAULT_ANALYSIS_DIR = "data/analysis"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +33,15 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--count", type=int, default=20)
     collect.add_argument("--delay", type=float, default=1.0)
 
+    collect_user = subparsers.add_parser("collect-user")
+    collect_user.add_argument("--profile-dir", default="data/browser-profile")
+    collect_user.add_argument("--user-id", required=True)
+    collect_user.add_argument("--pages", type=int, default=500)
+    collect_user.add_argument("--start-page", type=int, default=1)
+    collect_user.add_argument("--count", type=int, default=20)
+    collect_user.add_argument("--delay", type=float, default=0.5)
+    _add_since_args(collect_user)
+
     inspect = subparsers.add_parser("inspect")
     inspect.add_argument("--limit", type=int, default=20)
 
@@ -41,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
     report = subparsers.add_parser("report")
     _add_report_args(report)
 
+    user_report = subparsers.add_parser("user-report")
+    user_report.add_argument("--user-id", required=True)
+    user_report.add_argument("--output-dir", default=DEFAULT_ANALYSIS_DIR)
+    _add_since_args(user_report)
+
     collect_report = subparsers.add_parser("collect-report")
     collect_report.add_argument("--profile-dir", default="data/browser-profile")
     collect_report.add_argument("--pages", type=int, default=3)
@@ -49,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_report_args(collect_report)
 
     return parser
+
+
+def _add_since_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--since-date", help="Local Beijing date in YYYY-MM-DD")
+    parser.add_argument("--since-days", type=int, default=365)
 
 
 def _add_report_args(parser: argparse.ArgumentParser) -> None:
@@ -139,6 +160,42 @@ def _build_report(store, args, summary=None):
     return path
 
 
+def _resolve_since_date(args) -> date:
+    if args.since_date:
+        return date.fromisoformat(args.since_date)
+    return datetime.now(CHINA_TZ).date() - timedelta(days=args.since_days)
+
+
+def _resolve_since_start(args) -> datetime:
+    return datetime.combine(_resolve_since_date(args), time(0, 0)).replace(
+        tzinfo=CHINA_TZ
+    )
+
+
+def _build_user_report(store, args):
+    since_date = _resolve_since_date(args)
+    posts = store.list_posts_for_source("user:{}".format(args.user_id), limit=None)
+    author_name = next((post.author_name for post in posts if post.author_name), None)
+    report = render_user_analysis_report(
+        posts,
+        user_id=args.user_id,
+        author_name=author_name,
+        since_date=since_date,
+    )
+    path = write_user_analysis_report(
+        report,
+        args.output_dir,
+        user_id=args.user_id,
+        since_date=since_date,
+    )
+    print(
+        _safe_console_text(
+            "analysis={} posts={}".format(path, report.post_count)
+        )
+    )
+    return path
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -162,6 +219,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _print_summary(summary)
         return 1 if summary.error else 0
 
+    if args.command == "collect-user":
+        if args.count > 20:
+            parser.error("collect-user --count must be 20 or less for Xueqiu")
+        client = PlaywrightTimelineClient(args.profile_dir)
+        summary = collect_user_timeline(
+            store,
+            client,
+            user_id=args.user_id,
+            pages=args.pages,
+            count=args.count,
+            delay=args.delay,
+            since=_resolve_since_start(args),
+            start_page=args.start_page,
+        )
+        _print_summary(summary)
+        return 1 if summary.error else 0
+
     if args.command == "inspect":
         _print_posts(store.list_posts(limit=args.limit))
         return 0
@@ -177,6 +251,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.command == "report":
         _build_report(store, args)
+        return 0
+
+    if args.command == "user-report":
+        _build_user_report(store, args)
         return 0
 
     if args.command == "collect-report":

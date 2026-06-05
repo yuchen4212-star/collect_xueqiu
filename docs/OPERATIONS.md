@@ -18,6 +18,18 @@ After `auth`, log in to Xueqiu in the browser and close the browser window.
 xueqiu-collector collect --pages 3 --count 20
 ```
 
+Collect one user's timeline since a Beijing local date:
+
+```powershell
+xueqiu-collector collect-user --user-id 2292705444 --since-date 2025-06-04 --pages 500
+```
+
+For very active users, long runs can be resumed by page segment:
+
+```powershell
+xueqiu-collector collect-user --user-id 2292705444 --since-date 2025-06-04 --start-page 101 --pages 100
+```
+
 Inspect the latest local rows:
 
 ```powershell
@@ -40,6 +52,12 @@ Collect and report together:
 
 ```powershell
 xueqiu-collector collect-report --period auto --notify
+```
+
+Generate a one-user analysis evidence pack:
+
+```powershell
+xueqiu-collector user-report --user-id 2292705444 --since-date 2025-06-04
 ```
 
 ## Daily Periods

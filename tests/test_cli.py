@@ -46,6 +46,50 @@ def test_collect_report_accepts_period_and_notify_options():
     assert args.output_dir == "data/reports"
 
 
+def test_collect_user_accepts_user_timeline_options():
+    args = cli.build_parser().parse_args(
+        [
+            "collect-user",
+            "--user-id",
+            "2292705444",
+            "--since-date",
+            "2025-06-04",
+            "--pages",
+            "450",
+            "--start-page",
+            "2",
+            "--delay",
+            "0",
+        ]
+    )
+
+    assert args.command == "collect-user"
+    assert args.user_id == "2292705444"
+    assert args.since_date == "2025-06-04"
+    assert args.pages == 450
+    assert args.start_page == 2
+    assert args.delay == 0
+
+
+def test_user_report_accepts_report_options():
+    args = cli.build_parser().parse_args(
+        [
+            "user-report",
+            "--user-id",
+            "2292705444",
+            "--since-date",
+            "2025-06-04",
+            "--output-dir",
+            "data/analysis",
+        ]
+    )
+
+    assert args.command == "user-report"
+    assert args.user_id == "2292705444"
+    assert args.since_date == "2025-06-04"
+    assert args.output_dir == "data/analysis"
+
+
 def test_main_auth_invokes_auth_browser(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setattr(cli, "open_auth_browser", lambda profile: calls.append(profile))

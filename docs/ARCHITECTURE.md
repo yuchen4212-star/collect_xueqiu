@@ -13,7 +13,9 @@ Browser profile -> Xueqiu timeline client -> parser -> SQLite store
 
 - `xueqiu_collector.client`
   - Uses Playwright with a persistent browser profile.
-  - Fetches followed timeline pages through the logged-in session.
+  - Fetches followed timeline and user timeline pages through the logged-in
+    session.
+  - Can reuse one browser session for long single-user collection runs.
 - `xueqiu_collector.collector`
   - Coordinates paging, response classification, parsing, storage, and run
     summaries.
@@ -27,11 +29,14 @@ Browser profile -> Xueqiu timeline client -> parser -> SQLite store
   - Resolves the Beijing-time reporting windows.
 - `xueqiu_collector.reporting`
   - Filters posts by period and renders Markdown reports.
+- `xueqiu_collector.user_analysis`
+  - Filters one user's collected posts and renders a local analysis evidence
+    pack.
 - `xueqiu_collector.notifier`
   - Sends Markdown content through PushPlus, SMTP email, or a JSON webhook.
 - `xueqiu_collector.cli`
-  - Exposes `auth`, `collect`, `inspect`, `export`, `report`, and
-    `collect-report`.
+  - Exposes `auth`, `collect`, `collect-user`, `inspect`, `export`, `report`,
+    `user-report`, and `collect-report`.
 
 ## Design Principles
 
@@ -42,6 +47,8 @@ Browser profile -> Xueqiu timeline client -> parser -> SQLite store
 - Reporting is separated from collection so reports can be rebuilt without
   touching Xueqiu.
 - Notification attempts are recorded separately from generated reports.
+- Collection source membership is recorded separately from posts so a single
+  database can hold followed-feed and target-user data at the same time.
 
 ## Period Workflow
 

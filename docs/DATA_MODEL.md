@@ -51,6 +51,26 @@ One row per collection run.
 - requested and fetched page counts
 - inserted, updated, duplicate counts
 - error text if the run stopped early
+- `source_key`: optional source index such as `user:2292705444`
+
+### `collection_sources`
+
+Named collection sources that let different collection modes share the same
+`posts` table without losing provenance.
+
+- `key`: stable source key such as `home` or `user:2292705444`.
+- `source_type`: `home`, `user`, or another custom type.
+- `source_id`: source-specific id, for example the Xueqiu user id.
+- `label`: readable source label.
+- `created_at`, `updated_at`: local indexing metadata.
+
+### `post_sources`
+
+Many-to-many membership table between collected posts and sources.
+
+- `source_key`: source key from `collection_sources`.
+- `post_id`: collected post id from `posts`.
+- `first_collected_at`, `last_collected_at`: when this source saw the post.
 
 ### `reports`
 
@@ -81,3 +101,6 @@ posts.
 
 Reports and exports are not source-of-truth data. They can be regenerated from
 SQLite when needed.
+
+Single-user analysis reports under `data/analysis/users/...` are also derived
+artifacts and are ignored by Git.

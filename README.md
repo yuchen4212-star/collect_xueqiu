@@ -11,8 +11,11 @@ documentation.
 ## Features
 
 - Collect followed Xueqiu timeline posts with a logged-in browser profile.
+- Collect a specific user's timeline for a date range with `collect-user`.
 - Store posts in SQLite with author, quote, collection, report, and notification
   metadata tables.
+- Keep source membership indexes so followed-feed posts and single-user posts
+  can share one database without getting mixed together.
 - Generate Beijing-time period reports:
   - `overnight`: 00:00 to 09:30
   - `morning`: 09:30 to 12:30
@@ -22,6 +25,7 @@ documentation.
 - Split replies, reply context, and quoted originals into readable conversation
   blocks.
 - Send reports through PushPlus, SMTP email, or a generic JSON webhook.
+- Generate a local one-user evidence pack with `user-report`.
 - Keep runtime files under layered `data/` directories that are ignored by Git.
 
 ## Install
@@ -48,6 +52,16 @@ xueqiu-collector collect --pages 3 --count 20
 
 Collected posts are stored in `data/db/xueqiu.sqlite`.
 
+Collect a specific user's timeline since a Beijing local date:
+
+```powershell
+xueqiu-collector collect-user --user-id 2292705444 --since-date 2025-06-04 --pages 500
+```
+
+The command stops when it reaches a page whose dated posts are all older than
+the cutoff date. Xueqiu currently accepts `count` values up to `20` for this
+endpoint.
+
 ## Report
 
 Generate a report for the most recently completed period:
@@ -73,6 +87,14 @@ Reports are written under `data/reports/YYYY/MM/DD/`, for example:
 ```text
 data/reports/2026/06/04/0930-1230-morning.digest.md
 ```
+
+Generate a one-user analysis evidence pack from already collected user posts:
+
+```powershell
+xueqiu-collector user-report --user-id 2292705444 --since-date 2025-06-04
+```
+
+User analysis files are written under `data/analysis/users/<user-id>/<since-date>/`.
 
 ## Report Styles
 
@@ -142,6 +164,7 @@ data/
     xueqiu.sqlite          # SQLite source of truth
   browser-profile/         # Xueqiu login cookies
   reports/YYYY/MM/DD/      # generated Markdown reports
+  analysis/users/...       # generated single-user analysis reports
   exports/YYYY/MM/DD/      # manual CSV/JSONL exports
 ```
 

@@ -12,3 +12,4 @@ data/*.sqlite
 data/*.sqlite-*
 data/exports/
 data/reports/
+data/analysis/

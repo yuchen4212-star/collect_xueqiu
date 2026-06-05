@@ -44,7 +44,16 @@ def test_store_schema_has_layered_metadata_tables(tmp_path):
             )
         }
 
-    assert {"posts", "authors", "post_quotes", "collection_runs", "reports", "notifications"} <= tables
+    assert {
+        "posts",
+        "authors",
+        "post_quotes",
+        "collection_runs",
+        "collection_sources",
+        "post_sources",
+        "reports",
+        "notifications",
+    } <= tables
 
 
 def test_upsert_posts_indexes_author_and_quoted_original(tmp_path):
@@ -73,6 +82,43 @@ def test_upsert_posts_indexes_author_and_quoted_original(tmp_path):
 
     assert author["name"] == "alice"
     assert tuple(quote) == ("99", "77", "quoted-author", "https://xueqiu.com/77/99")
+
+
+def test_upsert_posts_indexes_collection_source_membership(tmp_path):
+    store = Store(tmp_path / "db" / "xueqiu.sqlite")
+    store.init_schema()
+
+    store.upsert_posts(
+        [make_post("1"), make_post("2")],
+        source_key="user:2292705444",
+        source_type="user",
+        source_id="2292705444",
+        source_label="metalslime",
+    )
+    store.upsert_posts(
+        [make_post("2"), make_post("3")],
+        source_key="home",
+        source_type="home",
+        source_id=None,
+        source_label="followed timeline",
+    )
+
+    with store.connect() as conn:
+        source = conn.execute(
+            "SELECT source_type, source_id, label FROM collection_sources WHERE key = ?",
+            ("user:2292705444",),
+        ).fetchone()
+        user_rows = conn.execute(
+            "SELECT post_id FROM post_sources WHERE source_key = ? ORDER BY post_id",
+            ("user:2292705444",),
+        ).fetchall()
+
+    assert tuple(source) == ("user", "2292705444", "metalslime")
+    assert [row["post_id"] for row in user_rows] == ["1", "2"]
+    assert [post.id for post in store.list_posts_for_source("user:2292705444")] == [
+        "1",
+        "2",
+    ]
 
 
 def test_store_records_reports_and_notifications(tmp_path):
