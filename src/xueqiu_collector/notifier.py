@@ -94,12 +94,49 @@ def _send_email(title: str, content: str, env: Mapping[str, str]) -> Notificatio
     return NotificationResult("email", True, "sent")
 
 
+def _get_persistent_environment() -> Mapping[str, str]:
+    if os.name != "nt":
+        return {}
+    try:
+        import winreg
+    except ImportError:
+        return {}
+
+    values = {}
+    registry_locations = (
+        (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        (winreg.HKEY_CURRENT_USER, "Environment"),
+    )
+    for root, path in registry_locations:
+        try:
+            with winreg.OpenKey(root, path) as key:
+                index = 0
+                while True:
+                    try:
+                        name, value, _ = winreg.EnumValue(key, index)
+                    except OSError:
+                        break
+                    values[name] = str(value)
+                    index += 1
+        except OSError:
+            continue
+    return values
+
+
+def _current_environment() -> Mapping[str, str]:
+    if os.name != "nt":
+        return os.environ
+    values = dict(_get_persistent_environment())
+    values.update(os.environ)
+    return values
+
+
 def notify(
     title: str,
     content: str,
     env: Optional[Mapping[str, str]] = None,
 ) -> NotificationResult:
-    current_env = env if env is not None else os.environ
+    current_env = env if env is not None else _current_environment()
     channel = current_env.get("XUEQIU_NOTIFY", "").strip().lower()
     if not channel or channel in ("none", "off", "0", "false"):
         return NotificationResult("none", False, "notification disabled")

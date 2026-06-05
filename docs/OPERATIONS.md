@@ -4,8 +4,21 @@ This document covers day-to-day use, scheduling, and recovery.
 
 ## Initial Setup
 
+Windows PowerShell:
+
 ```powershell
 pip install .[test]
+python -m playwright install chromium
+xueqiu-collector auth
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install '.[test]'
 python -m playwright install chromium
 xueqiu-collector auth
 ```
@@ -82,14 +95,22 @@ Recommended run points:
 
 ## PushPlus
 
-Configure PushPlus with user-level environment variables:
+Configure PushPlus with user-level environment variables on Windows:
 
 ```powershell
 [Environment]::SetEnvironmentVariable('XUEQIU_NOTIFY','pushplus','User')
 [Environment]::SetEnvironmentVariable('XUEQIU_PUSHPLUS_TOKEN','your-token','User')
 ```
 
-Open a new shell so the environment variables are visible, then test:
+On macOS/Linux, export the variables in the shell or scheduler environment:
+
+```bash
+export XUEQIU_NOTIFY=pushplus
+export XUEQIU_PUSHPLUS_TOKEN='your-token'
+```
+
+Open a new shell or reload your shell profile so the environment variables are
+visible, then test:
 
 ```powershell
 xueqiu-collector report --period morning --date 2026-06-04 --notify
@@ -104,6 +125,11 @@ Back up the SQLite database:
 ```powershell
 Copy-Item data/db/xueqiu.sqlite data/db/xueqiu.backup.sqlite
 ```
+
+For a Mac migration, keep this backup private and restore it to
+`data/db/xueqiu.sqlite` after cloning the repository. Re-run
+`xueqiu-collector auth` on the Mac instead of copying `data/browser-profile/`
+across operating systems.
 
 Reports and exports can be regenerated, but they are safe to back up if you want
 an archive.

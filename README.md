@@ -30,8 +30,20 @@ documentation.
 
 ## Install
 
+Windows PowerShell:
+
 ```powershell
 pip install .[test]
+python -m playwright install chromium
+```
+
+macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install '.[test]'
 python -m playwright install chromium
 ```
 
@@ -120,13 +132,21 @@ xueqiu-collector report --period morning --author-limit 5
 ## Notifications
 
 Set `XUEQIU_NOTIFY` to choose a channel. If it is unset, reports are only written
-locally.
+locally. Use `.env.example` as the safe template for local secrets; do not
+commit real token values.
 
-PushPlus:
+PushPlus on Windows PowerShell:
 
 ```powershell
 [Environment]::SetEnvironmentVariable('XUEQIU_NOTIFY','pushplus','User')
 [Environment]::SetEnvironmentVariable('XUEQIU_PUSHPLUS_TOKEN','your-token','User')
+```
+
+PushPlus on macOS/Linux:
+
+```bash
+export XUEQIU_NOTIFY=pushplus
+export XUEQIU_PUSHPLUS_TOKEN='your-token'
 ```
 
 SMTP email:
@@ -170,10 +190,23 @@ data/
 
 Runtime files under `data/` are ignored by Git.
 
+## GitHub And Mac Migration
+
+This repository is safe to push to GitHub when `git status` only shows source,
+test, and documentation changes. Do not push local runtime data or real secrets.
+
+For a new Mac, clone the repository, install the package, run
+`python -m playwright install chromium`, restore `data/db/xueqiu.sqlite` from a
+private backup if you want historical continuity, then run `xueqiu-collector
+auth` to create a fresh browser login.
+
+See [Mac Migration](docs/MAC_MIGRATION.md) for the full checklist.
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Data Model](docs/DATA_MODEL.md)
+- [Mac Migration](docs/MAC_MIGRATION.md)
 - [Operations](docs/OPERATIONS.md)
 
 ## Tests
