@@ -19,11 +19,15 @@ git ls-files data .env
 
 Expected: no `data/` files and no `.env` files are tracked.
 
-Back up the SQLite database if you want historical continuity on the Mac:
+Back up the SQLite database so the Mac can keep the same historical timeline:
 
 ```powershell
-Compress-Archive -Path data\db\xueqiu.sqlite -DestinationPath xueqiu-db-backup.zip
+New-Item -ItemType Directory -Force data\db\backups
+Compress-Archive -Path data\db\xueqiu.sqlite -DestinationPath data\db\backups\xueqiu.sqlite.backup.zip
 ```
+
+Copy `data\db\backups\xueqiu.sqlite.backup.zip` to a private location such as an
+external drive, iCloud Drive, OneDrive, or another private backup tool.
 
 Do not rely on copying `data/browser-profile/` across operating systems. Run
 `xueqiu-collector auth` again on the Mac.
@@ -49,11 +53,11 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 
 ## Restore Local State On Mac
 
-If you backed up the SQLite database:
+Restore the SQLite database backup:
 
 ```bash
 mkdir -p data/db
-unzip xueqiu-db-backup.zip -d /tmp/xueqiu-db-restore
+unzip xueqiu.sqlite.backup.zip -d /tmp/xueqiu-db-restore
 cp /tmp/xueqiu-db-restore/data/db/xueqiu.sqlite data/db/xueqiu.sqlite
 ```
 
